@@ -13,14 +13,19 @@ def get_digits(num):
     return list(reversed(digits))
 
 def check_number(num):
+    digits = get_digits(num)
+
     # Don't need to check if it's a 6 digit number, or in range, because we
     # only try valid numbers here.
+    assert(len(digits) == 6)
+
     has_double = False
     all_increasing = True
-    digits = get_digits(num)
     for i in range(len(digits)-1):
         if digits[i] == digits[i+1]:
-            has_double = True
+            if ((i == 0 or digits[i-1] != digits[i])
+                    and (i > len(digits)-3 or digits[i+1] != digits[i+2])):
+                has_double = True
         if digits[i] > digits[i+1]:
             all_increasing = False
 
@@ -30,9 +35,9 @@ def check_number(num):
 
 class Test(unittest.TestCase):
     def test_check_number(self):
-        self.assertTrue(check_number(111111))
-        self.assertFalse(check_number(223450))
-        self.assertFalse(check_number(123789))
+        self.assertTrue(check_number(112233))
+        self.assertFalse(check_number(123444))
+        self.assertTrue(check_number(111122))
 
 if __name__ == '__main__':
     unittest.main(exit=False)
