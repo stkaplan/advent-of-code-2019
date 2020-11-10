@@ -55,8 +55,13 @@ class RunProgramTest(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main(exit=False)
 
-    mem = read_input()
-    mem[1] = 12
-    mem[2] = 2
-    run_program(mem)
-    print_mem(mem)
+    orig_mem = read_input()
+    for noun in range(0,100):
+        for verb in range(0, 100):
+            mem = orig_mem.copy()
+            mem[1] = noun
+            mem[2] = verb
+            run_program(mem)
+
+            if mem[0] == 19690720:
+                print(100 * noun + verb)
