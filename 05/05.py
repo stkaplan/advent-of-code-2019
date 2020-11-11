@@ -11,11 +11,11 @@ def print_mem(mem):
     print(','.join(map(str, mem)))
 
 class Program:
-    def __init__(self, mem, input_=''):
+    def __init__(self, mem, input_=None):
         self.mem = mem
         self.pc = 0
-        self.input = input_
-        self.output = ''
+        self.input = input_ if input_ else []
+        self.output = []
 
     def run(self):
         self.pc = 0
@@ -64,14 +64,12 @@ class Program:
 
     @opcode_template(1, [0])
     def opcode_input(self, params):
-        input_str = input()
-        input_val = int(input_str.rstrip())
-        self.mem[params[0]] = input_val
+        self.mem[params[0]] = self.input.pop()
         return self.pc + len(params) + 1
 
     @opcode_template(1, [])
     def opcode_output(self, params):
-        print(params[0])
+        self.output.append(params[0])
         return self.pc + len(params) + 1
 
     @opcode_template(2, [])
@@ -120,7 +118,9 @@ class RunProgramTest(unittest.TestCase):
         program = Program(mem, input_)
         program.run()
         if output_mem is not None:
-            self.assertEqual(mem, output_mem)
+            self.assertEqual(program.mem, output_mem)
+        if output:
+            self.assertEqual(program.output, output)
 
     def test_run_program(self):
         self.run_test([1,0,0,0,99], [2,0,0,0,99])
@@ -129,10 +129,30 @@ class RunProgramTest(unittest.TestCase):
         self.run_test([1,1,1,4,99,5,6,0,99], [30,1,1,4,2,5,6,0,99])
         self.run_test([1101,100,-1,4,0], [1101,100,-1,4,99])
         self.run_test([1001,5,-1,4,0,100], [1001,5,-1,4,99,100])
+        self.run_test([3,9,8,9,10,9,4,9,99,-1,8], None, [8], [1])
+        self.run_test([3,9,8,9,10,9,4,9,99,-1,8], None, [1], [0])
+        self.run_test([3,9,8,9,10,9,4,9,99,-1,8], None, [9], [0])
+        self.run_test([3,9,7,9,10,9,4,9,99,-1,8], None, [-1], [1])
+        self.run_test([3,9,7,9,10,9,4,9,99,-1,8], None, [8], [0])
+        self.run_test([3,9,7,9,10,9,4,9,99,-1,8], None, [9], [0])
+        self.run_test([3,3,1108,-1,8,3,4,3,99], None, [8], [1])
+        self.run_test([3,3,1108,-1,8,3,4,3,99], None, [1], [0])
+        self.run_test([3,3,1108,-1,8,3,4,3,99], None, [9], [0])
+        self.run_test([3,3,1107,-1,8,3,4,3,99], None, [-1], [1])
+        self.run_test([3,3,1107,-1,8,3,4,3,99], None, [8], [0])
+        self.run_test([3,3,1107,-1,8,3,4,3,99], None, [9], [0])
+        self.run_test([3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9], None, [0], [0])
+        self.run_test([3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9], None, [5], [1])
+        self.run_test([3,3,1105,-1,9,1101,0,0,12,4,12,99,1], None, [0], [0])
+        self.run_test([3,3,1105,-1,9,1101,0,0,12,4,12,99,1], None, [5], [1])
+        self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31, 1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104, 999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [3], [999])
+        self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31, 1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104, 999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [8], [1000])
+        self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31, 1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104, 999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [10], [1001])
 
 if __name__ == '__main__':
     unittest.main(exit=False)
 
     mem = read_input()
-    program = Program(mem)
+    program = Program(mem, [5])
     program.run()
+    print(program.output)
