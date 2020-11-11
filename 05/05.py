@@ -56,7 +56,7 @@ def opcode_multiply(mem, pc, params):
 
 @opcode_template(1, [0])
 def opcode_input(mem, pc, params):
-    input_str = input('Enter a value: ')
+    input_str = input()
     input_val = int(input_str.rstrip())
     mem[params[0]] = input_val
     return pc + len(params) + 1
@@ -66,6 +66,25 @@ def opcode_output(mem, pc, params):
     print(params[0])
     return pc + len(params) + 1
 
+@opcode_template(2, [])
+def opcode_jump_if_true(mem, pc, params):
+    return params[1] if params[0] != 0 else pc + len(params) + 1
+
+@opcode_template(2, [])
+def opcode_jump_if_false(mem, pc, params):
+    return params[1] if params[0] == 0 else pc + len(params) + 1
+
+@opcode_template(3, [2])
+def opcode_less_than(mem, pc, params):
+    mem[params[2]] = int(params[0] < params[1])
+    return pc + len(params) + 1
+
+@opcode_template(3, [2])
+def opcode_equals(mem, pc, params):
+    mem[params[2]] = int(params[0] == params[1])
+    return pc + len(params) + 1
+
+@opcode_template(0, [])
 def opcode_exit(mem, pc, modes):
     return None
 
@@ -76,6 +95,10 @@ def run_instruction(mem, pc):
         2: opcode_multiply,
         3: opcode_input,
         4: opcode_output,
+        5: opcode_jump_if_true,
+        6: opcode_jump_if_false,
+        7: opcode_less_than,
+        8: opcode_equals,
         99: opcode_exit,
     }
 
@@ -100,5 +123,6 @@ class RunProgramTest(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main(exit=False)
 
-    mem = read_input()
+    mem = [3,9,8,9,10,9,4,9,99,-1,8]
+    #mem = read_input()
     run_program(mem)
