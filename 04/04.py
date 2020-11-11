@@ -29,7 +29,7 @@ def check_number(num):
         if digits[i] > digits[i+1]:
             all_increasing = False
 
-        if has_double and not all_increasing:
+        if not all_increasing:
             return False
     return has_double and all_increasing
 

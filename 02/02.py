@@ -39,7 +39,7 @@ def run_instruction(mem, pc):
     opcode = mem[pc]
     if opcode not in opcodes:
         raise Exception(f'Invalid opcode: {opcode}')
-    return opcodes[mem[pc]](mem, pc)
+    return opcodes[opcode](mem, pc)
 
 class RunProgramTest(unittest.TestCase):
     def run_test(self, input, output):
@@ -56,7 +56,7 @@ if __name__ == '__main__':
     unittest.main(exit=False)
 
     orig_mem = read_input()
-    for noun in range(0,100):
+    for noun in range(0, 100):
         for verb in range(0, 100):
             mem = orig_mem.copy()
             mem[1] = noun
