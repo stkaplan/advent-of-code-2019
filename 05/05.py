@@ -9,7 +9,7 @@ def read_input():
 
 def print_mem(mem):
     print(','.join(map(str, mem)))
-        
+
 def run_program(mem):
     pc = 0
     while True:
@@ -26,33 +26,45 @@ def parse_opcode(val):
         modes.append(bool(mode))
     return (opcode, modes)
 
-def is_immediate(modes, i):
-    return i <= len(modes) and modes[i-1]
-
 def get_parameter_value(mem, pc, i, modes):
-    return mem[pc+i] if is_immediate(modes, i) else mem[mem[pc+i]]
+    return mem[pc+i+1] if modes[i] else mem[mem[pc+i+1]]
 
-def opcode_add(mem, pc, modes):
-    val1 = get_parameter_value(mem, pc, 1, modes)
-    val2 = get_parameter_value(mem, pc, 2, modes)
-    mem[mem[pc+3]] = val1 + val2
-    return pc+4
+# Generic decorator to set up params, based on parameter modes
+def opcode_template(num_params, output_params):
+    def decorator(func):
+        def inner(mem, pc, modes):
+            modes += [False] * (num_params - len(modes))
+            for i in output_params:
+                # Output paramters are not actually immediate mode, but we want
+                # to treat them as such: they return the output location, not
+                # the value at the output location.
+                modes[i] = True
+            params = [get_parameter_value(mem, pc, i, modes) for i in range(0, num_params)]
+            return func(mem, pc, params)
+        return inner
+    return decorator
 
-def opcode_multiply(mem, pc, modes):
-    val1 = get_parameter_value(mem, pc, 1, modes)
-    val2 = get_parameter_value(mem, pc, 2, modes)
-    mem[mem[pc+3]] = val1 * val2
-    return pc+4
+@opcode_template(3, [2])
+def opcode_add(mem, pc, params):
+    mem[params[2]] = params[0] + params[1]
+    return pc + len(params) + 1
 
-def opcode_input(mem, pc, modes):
+@opcode_template(3, [2])
+def opcode_multiply(mem, pc, params):
+    mem[params[2]] = params[0] * params[1]
+    return pc + len(params) + 1
+
+@opcode_template(1, [0])
+def opcode_input(mem, pc, params):
     input_str = input('Enter a value: ')
     input_val = int(input_str.rstrip())
-    mem[mem[pc+1]] = input_val
-    return pc+2
+    mem[params[0]] = input_val
+    return pc + len(params) + 1
 
-def opcode_output(mem, pc, modes):
-    print(get_parameter_value(mem, pc, 1, modes))
-    return pc+2
+@opcode_template(1, [])
+def opcode_output(mem, pc, params):
+    print(params[0])
+    return pc + len(params) + 1
 
 def opcode_exit(mem, pc, modes):
     return None
