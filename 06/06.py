@@ -10,39 +10,42 @@ def parse_orbits(f):
         orbits.append((elements[0], elements[1]))
     return orbits
 
-def add_orbit(orbit_distances, unplaced_orbits, orbit):
-    (parent, child) = orbit
-    if parent == 'COM':
-        orbit_distances[parent] = 0
-        orbit_distances[child] = 1
-    elif parent in orbit_distances:
-        orbit_distances[child] = orbit_distances[parent] + 1
-    else:
+def add_children(orbit_map, unplaced_orbits, parent):
+    if parent not in unplaced_orbits: # nothing orbits this body
+        return
+
+    assert(parent not in orbit_map)
+    orbit_map[parent] = unplaced_orbits[parent]
+    del unplaced_orbits[parent]
+    for child in orbit_map[parent]:
+        add_children(orbit_map, unplaced_orbits, child)
+
+def get_orbit_map(orbits, root):
+    unplaced_orbits = {}
+    orbit_map = {}
+
+    for parent, child in orbits:
         if parent not in unplaced_orbits:
             unplaced_orbits[parent] = []
         unplaced_orbits[parent].append(child)
 
-def get_orbit_distances(orbits):
-    unplaced_orbits = {} # map of parent to list of orbiting children
-    orbit_distances = {} # map of body to distance from COM
+    add_children(orbit_map, unplaced_orbits, root)
 
-    for orbit in orbits:
-        add_orbit(orbit_distances, unplaced_orbits, orbit)
+    return orbit_map
 
-    while len(unplaced_orbits) > 0:
-        new_orbit_distances = {}
-        for body in orbit_distances:
-            children = unplaced_orbits.pop(body, [])
-            for child in children:
-                new_orbit_distances[child] = orbit_distances[body] + 1
-
-        orbit_distances.update(new_orbit_distances)
-
-    return orbit_distances
+def get_total_orbits_inner(orbit_map, root, depth):
+    if root not in orbit_map:
+        return depth
+    else:
+        total = depth
+        for child in orbit_map[root]:
+            total += get_total_orbits_inner(orbit_map, child, depth+1)
+        return total
 
 def get_total_orbits(orbits):
-    orbit_distances = get_orbit_distances(orbits)
-    return sum(orbit_distances.values())
+    root = 'COM'
+    orbit_map = get_orbit_map(orbits, root)
+    return get_total_orbits_inner(orbit_map, root, 0)
 
 class RunProgramTest(unittest.TestCase):
     def test_part1(self):
@@ -58,5 +61,3 @@ if __name__ == '__main__':
 
     with open('input.txt') as f:
         orbits = parse_orbits(f)
-
-    print(get_total_orbits(orbits))
