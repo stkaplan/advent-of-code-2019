@@ -10,27 +10,12 @@ def parse_orbits(f):
         orbits.append((elements[0], elements[1]))
     return orbits
 
-def add_children(orbit_map, unplaced_orbits, parent):
-    if parent not in unplaced_orbits: # nothing orbits this body
-        return
-
-    assert(parent not in orbit_map)
-    orbit_map[parent] = unplaced_orbits[parent]
-    del unplaced_orbits[parent]
-    for child in orbit_map[parent]:
-        add_children(orbit_map, unplaced_orbits, child)
-
 def get_orbit_map(orbits, root):
-    unplaced_orbits = {}
     orbit_map = {}
-
     for parent, child in orbits:
-        if parent not in unplaced_orbits:
-            unplaced_orbits[parent] = []
-        unplaced_orbits[parent].append(child)
-
-    add_children(orbit_map, unplaced_orbits, root)
-
+        if parent not in orbit_map:
+            orbit_map[parent] = []
+        orbit_map[parent].append(child)
     return orbit_map
 
 def get_parent_map(orbits):
