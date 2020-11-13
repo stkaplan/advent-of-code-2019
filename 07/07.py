@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import itertools
 import unittest
 
 def read_input():
@@ -15,6 +16,7 @@ class Program:
         self.mem = mem
         self.pc = 0
         self.input = input_ if input_ else []
+        self.input_offset = 0
         self.output = []
 
     def run(self):
@@ -64,7 +66,8 @@ class Program:
 
     @opcode_template(1, [0])
     def opcode_input(self, params):
-        self.mem[params[0]] = self.input.pop()
+        self.mem[params[0]] = self.input[self.input_offset]
+        self.input_offset += 1
         return self.pc + len(params) + 1
 
     @opcode_template(1, [])
@@ -113,7 +116,19 @@ class Program:
             raise Exception(f'Invalid opcode: {opcode}')
         return opcodes[opcode](modes)
 
-class RunProgramTest(unittest.TestCase):
+def get_final_signal(orig_mem, perm):
+    signal = 0
+    for phase in perm:
+        mem = orig_mem.copy()
+        program = Program(mem, [phase, signal])
+        program.run()
+        signal = program.output[0]
+    return signal
+
+def get_max_final_signal(mem):
+    return max(get_final_signal(mem, perm) for perm in itertools.permutations([0,1,2,3,4]))
+
+class Test(unittest.TestCase):
     def run_test(self, mem, output_mem, input_='', output=''):
         program = Program(mem, input_)
         program.run()
@@ -145,14 +160,20 @@ class RunProgramTest(unittest.TestCase):
         self.run_test([3,12,6,12,15,1,13,14,13,4,13,99,-1,0,1,9], None, [5], [1])
         self.run_test([3,3,1105,-1,9,1101,0,0,12,4,12,99,1], None, [0], [0])
         self.run_test([3,3,1105,-1,9,1101,0,0,12,4,12,99,1], None, [5], [1])
-        self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31, 1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104, 999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [3], [999])
-        self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31, 1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104, 999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [8], [1000])
-        self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31, 1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104, 999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [10], [1001])
+        self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [3], [999])
+        self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [8], [1000])
+        self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [10], [1001])
+
+    def test_get_max_final_signal(self):
+        self.assertEqual(get_max_final_signal([3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0]), 43210)
+        self.assertEqual(get_max_final_signal([3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0]), 54321)
+        self.assertEqual(get_max_final_signal([3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0]), 65210)
+
+        mem = read_input()
+        self.assertEqual(get_max_final_signal(mem), 46248)
 
 if __name__ == '__main__':
     unittest.main(exit=False)
 
     mem = read_input()
-    program = Program(mem, [5])
-    program.run()
-    print(program.output)
+    print(get_max_final_signal(mem))
