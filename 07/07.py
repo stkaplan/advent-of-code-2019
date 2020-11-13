@@ -20,11 +20,17 @@ class Program:
         self.output = []
 
     def run(self):
-        self.pc = 0
-        while True:
+        while self.pc is not None:
             self.pc = self.run_instruction()
-            if self.pc is None:
-                break
+
+    def get_next_output(self):
+        initial_output_len = len(self.output)
+        while self.pc is not None and len(self.output) == initial_output_len:
+            self.pc = self.run_instruction()
+        if self.pc is None:
+            return None
+        else:
+            return self.output[-1]
 
     @staticmethod
     def parse_opcode(val):
@@ -116,17 +122,42 @@ class Program:
             raise Exception(f'Invalid opcode: {opcode}')
         return opcodes[opcode](modes)
 
-def get_final_signal(orig_mem, perm):
-    signal = 0
-    for phase in perm:
-        mem = orig_mem.copy()
-        program = Program(mem, [phase, signal])
-        program.run()
-        signal = program.output[0]
+def create_amps(mem, perm):
+    amps = []
+    for i in range(len(perm)):
+        amp = Program(mem.copy(), [perm[i]])
+        amps.append(amp)
+    return amps
+
+def get_next_signal(amps, signal):
+    for amp in amps:
+        amp.input.append(signal)
+        signal = amp.get_next_output()
     return signal
 
+def get_final_signal(mem, perm):
+    amps = create_amps(mem, perm)
+    return get_next_signal(amps, 0)
+
 def get_max_final_signal(mem):
-    return max(get_final_signal(mem, perm) for perm in itertools.permutations([0,1,2,3,4]))
+    num_amplifiers = 5
+    perms = itertools.permutations(range(num_amplifiers))
+    return max(get_final_signal(mem, perm) for perm in perms)
+
+def get_final_signal_with_feedback(mem, perm, initial_signal):
+    amps = create_amps(mem, perm)
+    signal = 0
+
+    while True:
+        new_signal = get_next_signal(amps, signal)
+        if new_signal is None:
+            return signal
+        signal = new_signal
+
+def get_max_final_signal_with_feedback(mem):
+    num_amplifiers = 5
+    perms = itertools.permutations(range(num_amplifiers, num_amplifiers*2))
+    return max(get_final_signal_with_feedback(mem, perm, 0) for perm in perms)
 
 class Test(unittest.TestCase):
     def run_test(self, mem, output_mem, input_='', output=''):
@@ -172,8 +203,15 @@ class Test(unittest.TestCase):
         mem = read_input()
         self.assertEqual(get_max_final_signal(mem), 46248)
 
+    def test_get_max_final_signal_with_feedback(self):
+        self.assertEqual(get_max_final_signal_with_feedback([3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5]), 139629729)
+        self.assertEqual(get_max_final_signal_with_feedback([3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,-5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10]), 18216)
+
+        mem = read_input()
+        self.assertEqual(get_max_final_signal_with_feedback(mem), 54163586)
+
 if __name__ == '__main__':
     unittest.main(exit=False)
 
     mem = read_input()
-    print(get_max_final_signal(mem))
+    print(get_max_final_signal_with_feedback(mem))
