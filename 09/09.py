@@ -202,11 +202,12 @@ class Test(unittest.TestCase):
         self.run_test([1102,34915192,34915192,7,4,7,99,0], None, [], [1219070632396864])
         self.run_test([104,1125899906842624,99], None, [], [1125899906842624])
         self.run_test(read_input(), None, [1], [3335138414])
+        #self.run_test(read_input(), None, [2], [49122])
 
 if __name__ == '__main__':
     unittest.main(exit=False)
 
     mem = read_input()
-    program = Program(mem, [1])
+    program = Program(mem, [2])
     program.run()
     print(program.output)
