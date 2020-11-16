@@ -2,6 +2,13 @@
 
 import itertools
 import unittest
+from enum import IntEnum
+
+class ParameterMode(IntEnum):
+    position = 0
+    immediate = 1
+    relative = 2
+    relative_output = 3
 
 def read_input():
     with open('input.txt') as f:
@@ -18,6 +25,7 @@ class Program:
         self.input = input_ if input_ else []
         self.input_offset = 0
         self.output = []
+        self.relative_base = 0
 
     def run(self):
         while self.pc is not None:
@@ -32,29 +40,53 @@ class Program:
         else:
             return self.output[-1]
 
+    def pad_mem(self, new_len):
+        if new_len > len(self.mem):
+            self.mem += [0] * (new_len - len(self.mem))
+
+    def get_mem(self, addr):
+        self.pad_mem(addr+1)
+        return self.mem[addr]
+
+    def set_mem(self, addr, val):
+        self.pad_mem(addr+1)
+        self.mem[addr] = val
+
     @staticmethod
     def parse_opcode(val):
         val, opcode = divmod(val, 100)
         modes = []
         while val > 0:
             val, mode = divmod(val, 10)
-            assert(mode in [0,1])
-            modes.append(bool(mode))
+            modes.append(mode)
         return (opcode, modes)
 
     def get_parameter_value(self, i, modes):
-        return self.mem[self.pc+i+1] if modes[i] else self.mem[self.mem[self.pc+i+1]]
+        loc = self.pc + i + 1
+        if modes[i] == ParameterMode.position:
+            return self.get_mem(self.get_mem(loc))
+        elif modes[i] == ParameterMode.immediate:
+            return self.get_mem(loc)
+        elif modes[i] == ParameterMode.relative:
+            return self.get_mem(self.get_mem(loc) + self.relative_base)
+        elif modes[i] == ParameterMode.relative_output:
+            return self.get_mem(loc) + self.relative_base
+        else:
+            raise Exception(f'Invalid parameter mode: {modes[i]}')
 
     # Generic decorator to set up params, based on parameter modes
     def opcode_template(num_params, output_params):
         def decorator(func):
             def inner(self, modes):
-                modes += [False] * (num_params - len(modes))
+                modes += [ParameterMode.position] * (num_params - len(modes))
                 for i in output_params:
                     # Output paramters are not actually immediate mode, but we want
                     # to treat them as such: they return the output location, not
                     # the value at the output location.
-                    modes[i] = True
+                    if modes[i] == ParameterMode.position:
+                        modes[i] = ParameterMode.immediate
+                    elif modes[i] == ParameterMode.relative:
+                        modes[i] = ParameterMode.relative_output
                 params = [self.get_parameter_value(i, modes) for i in range(0, num_params)]
                 return func(self, params)
             return inner
@@ -62,17 +94,17 @@ class Program:
 
     @opcode_template(3, [2])
     def opcode_add(self, params):
-        self.mem[params[2]] = params[0] + params[1]
+        self.set_mem(params[2], params[0] + params[1])
         return self.pc + len(params) + 1
 
     @opcode_template(3, [2])
     def opcode_multiply(self, params):
-        self.mem[params[2]] = params[0] * params[1]
+        self.set_mem(params[2], params[0] * params[1])
         return self.pc + len(params) + 1
 
     @opcode_template(1, [0])
     def opcode_input(self, params):
-        self.mem[params[0]] = self.input[self.input_offset]
+        self.set_mem(params[0], self.input[self.input_offset])
         self.input_offset += 1
         return self.pc + len(params) + 1
 
@@ -91,12 +123,17 @@ class Program:
 
     @opcode_template(3, [2])
     def opcode_less_than(self, params):
-        self.mem[params[2]] = int(params[0] < params[1])
+        self.set_mem(params[2], int(params[0] < params[1]))
         return self.pc + len(params) + 1
 
     @opcode_template(3, [2])
     def opcode_equals(self, params):
-        self.mem[params[2]] = int(params[0] == params[1])
+        self.set_mem(params[2], int(params[0] == params[1]))
+        return self.pc + len(params) + 1
+
+    @opcode_template(1, [])
+    def opcode_adjust_relative_base(self, params):
+        self.relative_base += params[0]
         return self.pc + len(params) + 1
 
     @opcode_template(0, [])
@@ -114,6 +151,7 @@ class Program:
             6: self.opcode_jump_if_false,
             7: self.opcode_less_than,
             8: self.opcode_equals,
+            9: self.opcode_adjust_relative_base,
             99: self.opcode_exit,
         }
 
@@ -121,43 +159,6 @@ class Program:
         if opcode not in opcodes:
             raise Exception(f'Invalid opcode: {opcode}')
         return opcodes[opcode](modes)
-
-def create_amps(mem, perm):
-    amps = []
-    for i in range(len(perm)):
-        amp = Program(mem.copy(), [perm[i]])
-        amps.append(amp)
-    return amps
-
-def get_next_signal(amps, signal):
-    for amp in amps:
-        amp.input.append(signal)
-        signal = amp.get_next_output()
-    return signal
-
-def get_final_signal(mem, perm):
-    amps = create_amps(mem, perm)
-    return get_next_signal(amps, 0)
-
-def get_max_final_signal(mem):
-    num_amplifiers = 5
-    perms = itertools.permutations(range(num_amplifiers))
-    return max(get_final_signal(mem, perm) for perm in perms)
-
-def get_final_signal_with_feedback(mem, perm, initial_signal):
-    amps = create_amps(mem, perm)
-    signal = 0
-
-    while True:
-        new_signal = get_next_signal(amps, signal)
-        if new_signal is None:
-            return signal
-        signal = new_signal
-
-def get_max_final_signal_with_feedback(mem):
-    num_amplifiers = 5
-    perms = itertools.permutations(range(num_amplifiers, num_amplifiers*2))
-    return max(get_final_signal_with_feedback(mem, perm, 0) for perm in perms)
 
 class Test(unittest.TestCase):
     def run_test(self, mem, output_mem, input_='', output=''):
@@ -195,23 +196,17 @@ class Test(unittest.TestCase):
         self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [8], [1000])
         self.run_test([3,21,1008,21,8,20,1005,20,22,107,8,21,20,1006,20,31,1106,0,36,98,0,0,1002,21,125,20,4,20,1105,1,46,104,999,1105,1,46,1101,1000,1,20,4,20,1105,1,46,98,99], None, [10], [1001])
 
-    def test_get_max_final_signal(self):
-        self.assertEqual(get_max_final_signal([3,15,3,16,1002,16,10,16,1,16,15,15,4,15,99,0,0]), 43210)
-        self.assertEqual(get_max_final_signal([3,23,3,24,1002,24,10,24,1002,23,-1,23,101,5,23,23,1,24,23,23,4,23,99,0,0]), 54321)
-        self.assertEqual(get_max_final_signal([3,31,3,32,1002,32,10,32,1001,31,-2,31,1007,31,0,33,1002,33,7,33,1,33,31,31,1,32,31,31,4,31,99,0,0,0]), 65210)
+        quine = [109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99]
+        self.run_test([109,1,204,-1,1001,100,1,100,1008,100,16,101,1006,101,0,99], None, [], quine)
 
-        mem = read_input()
-        self.assertEqual(get_max_final_signal(mem), 46248)
-
-    def test_get_max_final_signal_with_feedback(self):
-        self.assertEqual(get_max_final_signal_with_feedback([3,26,1001,26,-4,26,3,27,1002,27,2,27,1,27,26,27,4,27,1001,28,-1,28,1005,28,6,99,0,0,5]), 139629729)
-        self.assertEqual(get_max_final_signal_with_feedback([3,52,1001,52,-5,52,3,53,1,52,56,54,1007,54,5,55,1005,55,26,1001,54,-5,54,1105,1,12,1,53,54,53,1008,54,0,55,1001,55,1,55,2,53,55,53,4,53,1001,56,-1,56,1005,56,6,99,0,0,0,0,10]), 18216)
-
-        mem = read_input()
-        self.assertEqual(get_max_final_signal_with_feedback(mem), 54163586)
+        self.run_test([1102,34915192,34915192,7,4,7,99,0], None, [], [1219070632396864])
+        self.run_test([104,1125899906842624,99], None, [], [1125899906842624])
+        self.run_test(read_input(), None, [1], [3335138414])
 
 if __name__ == '__main__':
     unittest.main(exit=False)
 
     mem = read_input()
-    print(get_max_final_signal_with_feedback(mem))
+    program = Program(mem, [1])
+    program.run()
+    print(program.output)
