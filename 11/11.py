@@ -2,6 +2,7 @@
 
 import itertools
 import unittest
+from collections import namedtuple
 from enum import IntEnum
 
 class ParameterMode(IntEnum):
@@ -160,6 +161,74 @@ class Program:
             raise Exception(f'Invalid opcode: {opcode}')
         return opcodes[opcode](modes)
 
+Position = namedtuple('Position', ['x', 'y'])
+
+class Direction(IntEnum):
+    up = 0
+    right = 1
+    down = 2
+    left = 3
+
+class Color(IntEnum):
+    black = 0
+    white = 1
+
+class Robot:
+    def __init__(self, program):
+        self.panels = {}
+        self.position = Position(0, 0)
+        self.direction = Direction.up
+        self.program = Program(program)
+
+    def get_panel_color(self):
+        try:
+            return self.panels[self.position]
+        except KeyError:
+            return Color.black
+
+
+    def run(self):
+        while True:
+            finished = self.step()
+            if finished:
+                break
+
+    def step(self):
+        panel = self.get_panel_color()
+        self.program.input.append(panel)
+
+        color = self.program.get_next_output()
+        if color is None:
+            return True
+        self.panels[self.position] = color
+
+        turn_direction = self.program.get_next_output()
+        if turn_direction is None:
+            return True
+
+        self.turn(turn_direction)
+        self.move()
+
+        return False
+
+    def turn(self, turn_direction):
+        if turn_direction == 1: # turn right
+            self.direction += 1
+        else:
+            self.direction -= 1
+        self.direction %= len(Direction)
+        self.direction = Direction(self.direction)
+
+    def move(self):
+        if self.direction == Direction.up:
+            self.position = Position(self.position.x, self.position.y - 1)
+        elif self.direction == Direction.down:
+            self.position = Position(self.position.x, self.position.y + 1)
+        elif self.direction == Direction.left:
+            self.position = Position(self.position.x - 1, self.position.y)
+        elif self.direction == Direction.right:
+            self.position = Position(self.position.x + 1, self.position.y)
+
 class Test(unittest.TestCase):
     def run_test(self, mem, output_mem, input_='', output=''):
         program = Program(mem, input_)
@@ -201,13 +270,17 @@ class Test(unittest.TestCase):
 
         self.run_test([1102,34915192,34915192,7,4,7,99,0], None, [], [1219070632396864])
         self.run_test([104,1125899906842624,99], None, [], [1125899906842624])
-        self.run_test(read_input(), None, [1], [3335138414])
-        #self.run_test(read_input(), None, [2], [49122])
+
+    def test_robot(self):
+        mem = read_input()
+        robot = Robot(mem)
+        robot.run()
+        self.assertEqual(len(robot.panels), 1681)
 
 if __name__ == '__main__':
     unittest.main(exit=False)
 
     mem = read_input()
-    program = Program(mem, [2])
-    program.run()
-    print(program.output)
+    robot = Robot(mem)
+    robot.run()
+    print(len(robot.panels))
