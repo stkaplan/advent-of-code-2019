@@ -180,12 +180,11 @@ class Robot:
         self.direction = Direction.up
         self.program = Program(program)
 
-    def get_panel_color(self):
+    def get_panel_color(self, x, y):
         try:
-            return self.panels[self.position]
+            return self.panels[(x,y)]
         except KeyError:
             return Color.black
-
 
     def run(self):
         while True:
@@ -194,7 +193,7 @@ class Robot:
                 break
 
     def step(self):
-        panel = self.get_panel_color()
+        panel = self.get_panel_color(self.position.x, self.position.y)
         self.program.input.append(panel)
 
         color = self.program.get_next_output()
@@ -228,6 +227,17 @@ class Robot:
             self.position = Position(self.position.x - 1, self.position.y)
         elif self.direction == Direction.right:
             self.position = Position(self.position.x + 1, self.position.y)
+
+    def draw(self):
+        x_min = min(panel.x for panel in self.panels)
+        x_max = max(panel.x for panel in self.panels)
+        y_min = min(panel.y for panel in self.panels)
+        y_max = max(panel.y for panel in self.panels)
+
+        for y in range(y_min, y_max+1):
+            for x in range(x_min, x_max+1):
+                print('#' if self.get_panel_color(x, y) == Color.white else ' ', end='')
+            print()
 
 class Test(unittest.TestCase):
     def run_test(self, mem, output_mem, input_='', output=''):
@@ -282,5 +292,6 @@ if __name__ == '__main__':
 
     mem = read_input()
     robot = Robot(mem)
+    robot.panels[robot.position] = Color.white
     robot.run()
-    print(len(robot.panels))
+    robot.draw()
