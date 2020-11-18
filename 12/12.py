@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+import copy
 import itertools
+import math
 import re
 import unittest
 from collections import namedtuple
@@ -45,6 +47,29 @@ def step(moons):
     apply_gravity(moons)
     apply_velocity(moons)
 
+def is_repeated(moons, orig_moons, dim):
+    return all(moons[i].position[dim] == orig_moons[i].position[dim] and moons[i].velocity[dim] == orig_moons[i].velocity[dim] for i in range(len(moons)))
+
+def get_periods(moons):
+    orig_moons = copy.deepcopy(moons)
+    periods = [None, None, None]
+    step_num = 0
+    while not(all(periods)):
+        step(moons)
+        step_num += 1
+        repeated = [is_repeated(moons, orig_moons, dim) for dim in range(3)]
+        for dim, rep in enumerate(repeated):
+            if rep and periods[dim] is None:
+                periods[dim] = step_num
+    return periods
+
+def lcm(a, b):
+    return a * b // math.gcd(a, b)
+
+def get_global_period(moons):
+    periods = get_periods(moons)
+    return lcm(lcm(periods[0], periods[1]), periods[2])
+
 def read_input(f):
     moons = []
     for line in f:
@@ -79,11 +104,18 @@ class Test(unittest.TestCase):
         self.assertEqual(moons[3], Moon([16, -13, 23], [7, 1, 1]))
         self.assertEqual(get_total_energy(moons), 1940)
 
+    def test_part2(self):
+        with open('test1.txt') as f:
+            moons = read_input(f)
+        self.assertEqual(get_global_period(moons), 2772)
+
+        with open('test2.txt') as f:
+            moons = read_input(f)
+        self.assertEqual(get_global_period(moons), 4686774924)
+
 if __name__ == '__main__':
     unittest.main(exit=False)
-    
+
     with open('input.txt') as f:
         moons = read_input(f)
-    for _ in range(1000):
-        step(moons)
-    print(get_total_energy(moons))
+    print(get_global_period(moons))
