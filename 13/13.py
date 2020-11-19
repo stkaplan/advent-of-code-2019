@@ -161,83 +161,34 @@ class Program:
             raise Exception(f'Invalid opcode: {opcode}')
         return opcodes[opcode](modes)
 
-Position = namedtuple('Position', ['x', 'y'])
+class TileType(IntEnum):
+    empty = 0
+    wall = 1
+    block = 2
+    paddle = 3
+    ball = 4
 
-class Direction(IntEnum):
-    up = 0
-    right = 1
-    down = 2
-    left = 3
+TilePosition = namedtuple('TilePosition', ['x', 'y', 'type'])
 
-class Color(IntEnum):
-    black = 0
-    white = 1
+def get_next_tile(program):
+    x = program.get_next_output()
+    if x is None:
+        return None
+    y = program.get_next_output()
+    assert(y is not None)
+    tile = program.get_next_output()
+    assert(tile is not None)
+    return TilePosition(x, y, tile)
 
-class Robot:
-    def __init__(self, program):
-        self.panels = {}
-        self.position = Position(0, 0)
-        self.direction = Direction.up
-        self.program = Program(program)
-
-    def get_panel_color(self, x, y):
-        try:
-            return self.panels[(x,y)]
-        except KeyError:
-            return Color.black
-
-    def run(self):
-        while True:
-            finished = self.step()
-            if finished:
-                break
-
-    def step(self):
-        panel = self.get_panel_color(self.position.x, self.position.y)
-        self.program.input.append(panel)
-
-        color = self.program.get_next_output()
-        if color is None:
-            return True
-        self.panels[self.position] = color
-
-        turn_direction = self.program.get_next_output()
-        if turn_direction is None:
-            return True
-
-        self.turn(turn_direction)
-        self.move()
-
-        return False
-
-    def turn(self, turn_direction):
-        if turn_direction == 1: # turn right
-            self.direction += 1
-        else:
-            self.direction -= 1
-        self.direction %= len(Direction)
-        self.direction = Direction(self.direction)
-
-    def move(self):
-        if self.direction == Direction.up:
-            self.position = Position(self.position.x, self.position.y - 1)
-        elif self.direction == Direction.down:
-            self.position = Position(self.position.x, self.position.y + 1)
-        elif self.direction == Direction.left:
-            self.position = Position(self.position.x - 1, self.position.y)
-        elif self.direction == Direction.right:
-            self.position = Position(self.position.x + 1, self.position.y)
-
-    def draw(self):
-        x_min = min(panel.x for panel in self.panels)
-        x_max = max(panel.x for panel in self.panels)
-        y_min = min(panel.y for panel in self.panels)
-        y_max = max(panel.y for panel in self.panels)
-
-        for y in range(y_min, y_max+1):
-            for x in range(x_min, x_max+1):
-                print('#' if self.get_panel_color(x, y) == Color.white else ' ', end='')
-            print()
+def get_tiles(mem):
+    program = Program(mem)
+    tiles = {}
+    while True:
+        tile = get_next_tile(program)
+        if tile is None:
+            break
+        tiles[(tile.x, tile.y)] = tile.type
+    return tiles
 
 class Test(unittest.TestCase):
     def run_test(self, mem, output_mem, input_='', output=''):
@@ -281,17 +232,14 @@ class Test(unittest.TestCase):
         self.run_test([1102,34915192,34915192,7,4,7,99,0], None, [], [1219070632396864])
         self.run_test([104,1125899906842624,99], None, [], [1125899906842624])
 
-    def test_robot(self):
+    def test_get_tiles(self):
         mem = read_input()
-        robot = Robot(mem)
-        robot.run()
-        self.assertEqual(len(robot.panels), 1681)
+        tiles = get_tiles(mem)
+        self.assertEqual(sum(tile_type == TileType.block for tile_type in tiles.values()), 414)
 
 if __name__ == '__main__':
     unittest.main(exit=False)
 
     mem = read_input()
-    robot = Robot(mem)
-    robot.panels[robot.position] = Color.white
-    robot.run()
-    robot.draw()
+    tiles = get_tiles(mem)
+    print(sum(tile_type == TileType.block for tile_type in tiles.values()))
