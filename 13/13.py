@@ -168,27 +168,59 @@ class TileType(IntEnum):
     paddle = 3
     ball = 4
 
+Position = namedtuple('Position', ['x', 'y'])
 TilePosition = namedtuple('TilePosition', ['x', 'y', 'type'])
 
-def get_next_tile(program):
-    x = program.get_next_output()
-    if x is None:
-        return None
-    y = program.get_next_output()
-    assert(y is not None)
-    tile = program.get_next_output()
-    assert(tile is not None)
-    return TilePosition(x, y, tile)
+class Game:
+    def __init__(self, mem):
+        self.score = 0
+        self.program = Program(mem)
+        self.tiles = {}
 
-def get_tiles(mem):
-    program = Program(mem)
-    tiles = {}
-    while True:
-        tile = get_next_tile(program)
-        if tile is None:
-            break
-        tiles[(tile.x, tile.y)] = tile.type
-    return tiles
+    def get_next_tile(self):
+        x = self.program.get_next_output()
+        if x is None:
+            return None
+        y = self.program.get_next_output()
+        assert(y is not None)
+        tile = self.program.get_next_output()
+        assert(tile is not None)
+        return TilePosition(x, y, tile)
+
+    def move_joystick(self):
+        ball_position = [pos for pos, tile in self.tiles.items() if tile == TileType.ball]
+        paddle_position = [pos for pos, tile in self.tiles.items() if tile == TileType.paddle]
+        if not ball_position or not paddle_position:
+            return
+
+        assert(len(ball_position) == 1)
+        assert(len(paddle_position) == 1)
+        if paddle_position[0].x < ball_position[0].x:
+            input_ = 1
+        elif paddle_position[0].x > ball_position[0].x:
+            input_ = -1
+        else:
+            input_ = 0
+
+        # Don't append to the input list, since this might not be the next
+        # input read. Instead overwrite the input list entirely.
+        self.program.input = [input_]
+        self.program.input_offset = 0
+
+    def run_game(self):
+        while True:
+            tile = self.get_next_tile()
+            if tile is None:
+                break
+            elif tile.x == -1 and tile.y == 0:
+                self.score = tile.type
+            else:
+                self.tiles[Position(tile.x, tile.y)] = tile.type
+
+            self.move_joystick()
+
+    def count_blocks(self):
+        return sum(tile_type == TileType.block for tile_type in self.tiles.values())
 
 class Test(unittest.TestCase):
     def run_test(self, mem, output_mem, input_='', output=''):
@@ -232,14 +264,18 @@ class Test(unittest.TestCase):
         self.run_test([1102,34915192,34915192,7,4,7,99,0], None, [], [1219070632396864])
         self.run_test([104,1125899906842624,99], None, [], [1125899906842624])
 
-    def test_get_tiles(self):
+    def test_run_game(self):
         mem = read_input()
-        tiles = get_tiles(mem)
-        self.assertEqual(sum(tile_type == TileType.block for tile_type in tiles.values()), 414)
+        game = Game(mem)
+        game.run_game()
+        self.assertEqual(game.count_blocks(), 414)
 
 if __name__ == '__main__':
     unittest.main(exit=False)
 
     mem = read_input()
-    tiles = get_tiles(mem)
-    print(sum(tile_type == TileType.block for tile_type in tiles.values()))
+    mem[0] = 2 # Insert coins
+    game = Game(mem)
+    game.run_game()
+    assert(game.count_blocks() == 0)
+    print(game.score)
